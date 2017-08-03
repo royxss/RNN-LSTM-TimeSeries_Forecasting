@@ -10,7 +10,7 @@ options(digits=6)
 
 # Parameters
 filename = "C:\\Users\\SROY\\Documents\\CodeBase\\lstm ts\\y17.csv"
-seq_len = 30
+seq_len = 60
 
 # Load data
 df <- read.csv2(filename, header=FALSE)
@@ -53,8 +53,8 @@ stopifnot(nrow(train) + nrow(test) == nrow(ddf))
 
 
 # Shuffle train data
-set.seed(13843)
-#train <- train[sample(nrow(train)),]
+# set.seed(13843)
+# train <- train[sample(nrow(train)),]
 
 # Normalize each row so that the first element is zero
 normalize <- function(x) {
@@ -150,24 +150,38 @@ getPredictedValTest <- function(){
   return(temp)
 }
 
-# Set Keras params for RNN
-epochs  = 100
+# Set Keras params for RNN  
+# Working params : 
+# epoch 1, lr 0.00001 
+# epoch 1, batch 4, lr 0.00001
+epochs  = 2
 dropoutRate = 0.2
-learningRate = 0.04
-batch_size = 10
+learningRate = 0.00001
+batch_size = 4
 validation_split = 0.2
-
+units = 1 #seq_len
+set.seed(13879)
 # Using Keras sequential model
 model <- keras_model_sequential()
 
 model %>%
-  layer_lstm(units = 30,
-             input_shape = c(NCOL(trainX_Matrix), 1), 
-             activation = "linear") %>%
+  layer_lstm(units = units,
+             input_shape = c(NCOL(trainX_Matrix), 1)) %>%
   layer_dropout(rate=dropoutRate) %>%
   
   layer_dense(1) %>%
   layer_activation("linear")
+
+# model %>%
+#   layer_lstm(units = units,
+#              input_shape = c(NCOL(trainX_Matrix), 1), return_sequences=TRUE) %>%
+#   layer_dropout(rate=dropoutRate) %>%
+#   
+#   layer_lstm(units = (2 * NCOL(trainX_Matrix)), return_sequences=FALSE) %>%
+#   layer_dropout(rate=dropoutRate) %>%
+#   
+#   layer_dense(1) %>%
+#   layer_activation("linear")
 
 optimizer <- optimizer_rmsprop(lr = learningRate)
 
@@ -177,8 +191,9 @@ model %>% compile(
 
 # fitting the model on the training dataset
 model %>% fit(trainX_Matrix, trainY,
+              shuffle = FALSE,
               batch_size = batch_size, 
-              validation_split = validation_split,
+              #validation_split = validation_split,
               epochs = epochs)
 
 ## Forecast Series
@@ -186,6 +201,14 @@ model %>% fit(trainX_Matrix, trainY,
 # predSeq <- model %>% predict(testX_Matrix)
 # head(predSeq)
 # getPlot(testY, predSeq, "Continuous Forecast")
+
+# Evaluate error. Looks like underfitting
+train_error <- model %>% evaluate(trainX_Matrix, trainY, verbose = 0)
+print(paste0("train_error: ",train_error))
+test_error <- model %>% evaluate(testX_Matrix, testY, verbose = 0)
+print(paste0("test_error: ",test_error))
+
+#stopifnot(test_error > train_error)
 
 PredictedValTestResult <- getPredictedValTest()
 
